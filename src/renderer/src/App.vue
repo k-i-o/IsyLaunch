@@ -22,15 +22,14 @@ const handleDrop = (event: DragEvent) => {
 
 let recording: Ref<boolean> = ref(false);
 
-record = () => {
+const record = () => {
     recording.value = true;
 }
 
-stopRecord = () => {
+const stopRecord = () => {
     recording.value = false;
 }
 
-// Ensure the application allows files to be dropped
 onMounted(() => {
     window.addEventListener('dragover', (event) => event.preventDefault());
     window.addEventListener('drop', (event) => event.preventDefault());
@@ -50,10 +49,10 @@ onMounted(() => {
                 <div class="add btn" v-tooltip="{ value: 'Add a new item manually', showDelay: 600, hideDelay: 200 }">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>                
                 </div>
-                <div class="voice-record btn" v-if="!recording" v-on:click="record()" v-tooltip="{ value: 'Voice command', showDelay: 600, hideDelay: 200 }">
+                <div class="voice-record btn" v-if="!recording" v-on:click="record()" v-tooltip.bottom="{ value: 'Voice command', showDelay: 600, hideDelay: 200 }">
                     <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-microphone"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 2m0 3a3 3 0 0 1 3 -3h0a3 3 0 0 1 3 3v5a3 3 0 0 1 -3 3h0a3 3 0 0 1 -3 -3z" /><path d="M5 10a7 7 0 0 0 14 0" /><path d="M8 21l8 0" /><path d="M12 17l0 4" /></svg>
                 </div>
-                <div class="voice-record-stop btn" v-if="recording" v-on:click="stopRecord()" v-tooltip="{ value: 'Add a new item manually', showDelay: 600, hideDelay: 200 }">
+                <div class="voice-record-stop btn" v-if="recording" v-on:click="stopRecord()" v-tooltip.bottom="{ value: 'Stop', showDelay: 600, hideDelay: 200 }">
                     <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="currentColor"  class="icon icon-tabler icons-tabler-filled icon-tabler-player-stop"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 4h-10a3 3 0 0 0 -3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3 -3v-10a3 3 0 0 0 -3 -3z" /></svg>
                 </div>
                 <div class="settings btn" v-tooltip.bottom="{ value: 'Show settings', showDelay: 600, hideDelay: 200 }">
