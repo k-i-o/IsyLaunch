@@ -3,7 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
-let mainWindow = null;
+let mainWindow : BrowserWindow | null = null;
 
 function createWindow(): void {
     mainWindow = new BrowserWindow({
@@ -58,7 +58,7 @@ app.whenReady().then(() => {
     createWindow()
 
     // IPC
-    ipcMain.on('close', () => mainWindow.close())
+    ipcMain.on('close', () => mainWindow?.close())
 
     app.on('activate', function () {
         // On macOS it's common to re-create a window in the app when the
