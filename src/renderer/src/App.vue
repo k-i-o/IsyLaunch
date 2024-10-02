@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { Ref, ref, onMounted } from 'vue';
-import Tooltip from 'primevue/tooltip';
 
 const close = () => window.electron.ipcRenderer.send('close');
 const items = ref<File[]>([]);
+const librariesList = ref<any[]>([]);
+
+let recording: Ref<boolean> = ref(false);
+let settings: Ref<boolean> = ref(false);
+let libraries: Ref<boolean> = ref(false);
 
 const handleDragOver = (event: DragEvent) => {
     event.preventDefault();
@@ -20,8 +24,6 @@ const handleDrop = (event: DragEvent) => {
     }
 };
 
-let recording: Ref<boolean> = ref(false);
-
 const record = () => {
     recording.value = true;
 }
@@ -37,9 +39,9 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="container">
+    <div class="container" v-if="!settings">
         <div class="top-bar">
-            <div class="libraries btn" v-tooltip="{ value: 'Show libraries', showDelay: 600, hideDelay: 200 }">
+            <div class="libraries btn" v-on:click="libraries = !libraries" v-tooltip="{ value: 'Show libraries', showDelay: 600, hideDelay: 200 }">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-sitemap"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 15m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" /><path d="M15 15m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" /><path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" /><path d="M6 15v-1a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1" /><path d="M12 9l0 3" /></svg>
             </div>
             <div class="search-bar" v-tooltip="{ value: 'Search a title in the current list', showDelay: 600, hideDelay: 200 }">
@@ -55,7 +57,7 @@ onMounted(() => {
                 <div class="voice-record-stop btn" v-if="recording" v-on:click="stopRecord()" v-tooltip.bottom="{ value: 'Stop', showDelay: 600, hideDelay: 200 }">
                     <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="currentColor"  class="icon icon-tabler icons-tabler-filled icon-tabler-player-stop"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 4h-10a3 3 0 0 0 -3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3 -3v-10a3 3 0 0 0 -3 -3z" /></svg>
                 </div>
-                <div class="settings btn" v-tooltip.bottom="{ value: 'Show settings', showDelay: 600, hideDelay: 200 }">
+                <div class="settings btn" v-on:click="settings = true" v-tooltip.bottom="{ value: 'Show settings', showDelay: 600, hideDelay: 200 }">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-settings"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /></svg>
                 </div>
                 <div class="close btn" v-on:click="close()" v-tooltip.left="{ value: 'Minimize', showDelay: 600, hideDelay: 200 }">
@@ -63,11 +65,30 @@ onMounted(() => {
                 </div>
             </div>
         </div>
-        <div class="content" @dragover="handleDragOver" @drop="handleDrop">
+        <div class="content" v-if="!libraries" @dragover="handleDragOver" @drop="handleDrop">
             <h3 v-if="items.length === 0" class="empty">Drag and drop or click the + to add your first item</h3>
             <ul v-else>
                 <li v-for="(file, index) in items" :key="index">{{ file.name }}</li>
             </ul>
+        </div>
+        <div class="content" v-if="libraries">
+            <div class="libraries">
+                <div class="library" v-for="(lib, index) in librariesList" v-on:click="libraries = false">
+                    {{ lib }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- settings -->
+    <div class="container" v-if="settings">
+        <div class="top-bar">
+            <div class="back btn" v-on:click="settings = false" v-tooltip="{ value: 'Back', showDelay: 600, hideDelay: 200 }">
+                <svg style="transform: translateX(-2px);"  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-chevron-left"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 6l-6 6l6 6" /></svg>
+            </div>
+        </div>
+        <div class="content">
+            
         </div>
     </div>
 </template>
