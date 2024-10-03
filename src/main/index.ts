@@ -8,6 +8,7 @@ import { exec } from 'child_process';
 
 let mainWindow : BrowserWindow | null = null;
 
+// TODO: hide window in the windows bottom nav bar
 function createWindow(): void {
     mainWindow = new BrowserWindow({
         width: 600,
@@ -38,8 +39,6 @@ function createWindow(): void {
         return { action: 'deny' }
     })
 
-    // HMR for renderer base on electron-vite cli.
-    // Load the remote URL for development or the local html file for production.
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
         mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
     } else {
@@ -47,16 +46,11 @@ function createWindow(): void {
     }
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
+// TODO: implement tray
 app.whenReady().then(() => {
     // Set app user model id for windows
     electronApp.setAppUserModelId('com.electron')
 
-    // Default open or close DevTools by F12 in development
-    // and ignore CommandOrControl + R in production.
-    // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
     app.on('browser-window-created', (_, window) => {
         optimizer.watchWindowShortcuts(window)
     })
@@ -86,8 +80,9 @@ app.whenReady().then(() => {
     };
     
 
+    // TODO: put it in another file
     // IPC
-    ipcMain.on('close', () => mainWindow?.close());
+    ipcMain.on('close', () => mainWindow?.close()); // TODO: close will minimize
 
     ipcMain.handle('get-icon', async (_, exePath) => {
         try {
