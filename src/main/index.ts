@@ -1,7 +1,10 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join } from 'path'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import getFileIcon from 'extract-file-icon';
+import fs from 'fs';
+import { exec } from 'child_process';
 
 let mainWindow : BrowserWindow | null = null;
 
@@ -19,10 +22,10 @@ function createWindow(): void {
         icon,
         webPreferences: {
             preload: join(__dirname, '../preload/index.js'),
-            // sandbox: false,
-            contextIsolation: true,
+            sandbox: false,
+            // contextIsolation: true,
             webSecurity: false,
-            nodeIntegration: true,
+            // nodeIntegration: true,
         }
     })
 
@@ -60,8 +63,63 @@ app.whenReady().then(() => {
 
     createWindow()
 
+    const saveIconToFile = (iconBuffer: Buffer, exePath: string): string => {
+        if (!iconBuffer || !iconBuffer.length) {
+            throw new Error('Invalid icon buffer');
+        }
+    
+        const outputDir = path.join(__dirname, 'icons');
+        
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+    
+        const filePath = path.join(outputDir, `${path.basename(exePath, path.extname(exePath))}_icon.png`);
+    
+        try {
+            fs.writeFileSync(filePath, iconBuffer);
+            return filePath;
+        } catch (error) {
+            console.error(`Failed to save icon: ${error}`);
+            throw new Error('Could not save icon file');
+        }
+    };
+    
+
     // IPC
-    ipcMain.on('close', () => mainWindow?.close())
+    ipcMain.on('close', () => mainWindow?.close());
+
+    ipcMain.handle('get-icon', async (_, exePath) => {
+        try {
+            const iconBuffer = getFileIcon(exePath, 32);
+            const savedFilePath = saveIconToFile(iconBuffer, exePath);
+            return savedFilePath;
+        } catch (error) {
+            console.error(error);
+            throw new Error('Could not retrieve icon');
+        }
+    });
+
+    ipcMain.on('runProgram', (_, path) => {
+        exec(`start '${path}'`, function(err, _) {
+            console.log(err)
+        });
+    });
+
+    ipcMain.handle('open-file-dialog', async () => {
+        const result = await dialog.showOpenDialog({
+            properties: ['openFile'],
+            filters: [
+                { name: 'Files', extensions: ['exe', 'url', 'lnk'] },
+            ]
+        });
+    
+        if (result.canceled) {
+            return null;
+        } else {
+            return {fileName: path.basename(result.filePaths[0]), filePath: result.filePaths[0]};
+        }
+    });
 
     app.on('activate', function () {
         // On macOS it's common to re-create a window in the app when the

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { Ref, ref, onMounted } from 'vue';
+import { Ref, ref } from 'vue';
 
 const close = () => window.electron.ipcRenderer.send('close');
-const items = ref<File[]>([]);
+const items = ref<{ name: string; path: string; icon: string }[]>([]);
 const librariesList = ref<any[]>([]);
 
 let recording: Ref<boolean> = ref(false);
@@ -11,18 +11,54 @@ let libraries: Ref<boolean> = ref(false);
 
 const handleDragOver = (event: DragEvent) => {
     event.preventDefault();
-    event.dataTransfer!.dropEffect = 'copy';
 };
 
-const handleDrop = (event: DragEvent) => {
+async function addFile(fileName: string, filePath: string) {
+    if (!filePath.endsWith('.exe') && !filePath.endsWith('.url') && !filePath.endsWith('.lnk')) {
+        alert('Please use an exe');
+        return;
+    }
+
+    if (items.value.filter(i=>i.path==filePath).length > 0) {
+        alert('File already exist');
+        return;
+    }
+
+    try {
+        const iconPath = await window.electron.ipcRenderer.invoke('get-icon', filePath);
+        items.value.push({ name: fileName, path: filePath, icon: iconPath });
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+const handleDrop = async (event: DragEvent) => {
     event.preventDefault();
     const files = event.dataTransfer?.files;
     if (files) {
         for (let i = 0; i < files.length; i++) {
-            items.value.push(files[i]);
+            const file = files[i];
+            await addFile(file.name, file.path);
         }
     }
 };
+
+const openFileDialog = () => {
+    window.electron.ipcRenderer.invoke('open-file-dialog')
+        .then(async ({fileName, filePath}) => {
+          if (filePath && fileName) {
+            console.log('Selected file:', filePath);
+            await addFile(fileName, filePath);
+          }
+        })
+        .catch((error) => {
+          console.error('Error selecting file:', error);
+        });
+}
+
+const runProgram = (path: string) => {
+    window.electron.ipcRenderer.send("runProgram", path);
+}
 
 const record = () => {
     recording.value = true;
@@ -32,23 +68,22 @@ const stopRecord = () => {
     recording.value = false;
 }
 
-onMounted(() => {
-    window.addEventListener('dragover', (event) => event.preventDefault());
-    window.addEventListener('drop', (event) => event.preventDefault());
-});
 </script>
 
 <template>
     <div class="container" v-if="!settings">
         <div class="top-bar">
-            <div class="libraries btn" v-on:click="libraries = !libraries" v-tooltip="{ value: 'Show libraries', showDelay: 600, hideDelay: 200 }">
+            <div class="libraries btn" v-if="!libraries" v-on:click="libraries = true" v-tooltip="{ value: 'Show libraries', showDelay: 600, hideDelay: 200 }">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-sitemap"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 15m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" /><path d="M15 15m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" /><path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" /><path d="M6 15v-1a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1" /><path d="M12 9l0 3" /></svg>
+            </div>
+            <div class="back btn" v-if="libraries" v-on:click="libraries = false" v-tooltip="{ value: 'Back', showDelay: 600, hideDelay: 200 }">
+                <svg style="transform: translateX(-2px);"  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-chevron-left"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 6l-6 6l6 6" /></svg>
             </div>
             <div class="search-bar" v-tooltip="{ value: 'Search a title in the current list', showDelay: 600, hideDelay: 200 }">
                 <input type="text" placeholder="Search...">
             </div>
             <div class="buttons">
-                <div class="add btn" v-tooltip="{ value: 'Add a new item manually', showDelay: 600, hideDelay: 200 }">
+                <div class="add btn" v-on:click="openFileDialog()" v-tooltip="{ value: 'Add a new item manually', showDelay: 600, hideDelay: 200 }">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>                
                 </div>
                 <div class="voice-record btn" v-if="!recording" v-on:click="record()" v-tooltip.bottom="{ value: 'Voice command', showDelay: 600, hideDelay: 200 }">
@@ -65,15 +100,21 @@ onMounted(() => {
                 </div>
             </div>
         </div>
-        <div class="content" v-if="!libraries" @dragover="handleDragOver" @drop="handleDrop">
+        <div class="content" v-bind:class="items.length === 0 ? 'center' : ''" v-if="!libraries" @dragover="handleDragOver" @drop="handleDrop">
             <h3 v-if="items.length === 0" class="empty">Drag and drop or click the + to add your first item</h3>
             <ul v-else>
-                <li v-for="(file, index) in items" :key="index">{{ file.name }}</li>
+                <li v-for="(item, index) in items" :key="index" style="word-break: break-all;" v-on:click="runProgram(item.path)">
+                    <img :src="item.icon" width="40px">
+                    <span>
+                        {{ item.name.replace(".exe", "").replace(".url", "").replace(".lnk", "") }}
+                    </span>
+                </li>
             </ul>
         </div>
+        
         <div class="content" v-if="libraries">
             <div class="libraries">
-                <div class="library" v-for="(lib, index) in librariesList" v-on:click="libraries = false">
+                <div class="library" v-for="(lib) in librariesList" v-on:click="libraries = false">
                     {{ lib }}
                 </div>
             </div>
