@@ -62,7 +62,10 @@ app.whenReady().then(() => {
             throw new Error('Invalid icon buffer');
         }
     
-        const outputDir = path.join(__dirname, 'icons');
+        const appDataPath = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME || '', 'Library', 'Application Support') : path.join(process.env.HOME || '', '.config'));
+        const isyLauncherFolder = path.join(appDataPath, 'IsyLauncher');
+
+        const outputDir = path.join(isyLauncherFolder, 'icons');
         
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
@@ -84,7 +87,7 @@ app.whenReady().then(() => {
     // IPC
     ipcMain.on('close', () => mainWindow?.close()); // TODO: close will minimize
 
-    ipcMain.handle('get-icon', async (_, exePath) => {
+    ipcMain.handle('getIcon', async (_, exePath) => {
         try {
             const iconBuffer = getFileIcon(exePath, 32);
             const savedFilePath = saveIconToFile(iconBuffer, exePath);
@@ -96,12 +99,62 @@ app.whenReady().then(() => {
     });
 
     ipcMain.on('runProgram', (_, path) => {
-        exec(`start '${path}'`, function(err, _) {
+        exec(`"${path}"`, function(err, _) {
             console.log(err)
         });
     });
 
-    ipcMain.handle('open-file-dialog', async () => {
+    ipcMain.on('updateLibraries', (_, libraries) => {
+        const appDataPath = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME || '', 'Library', 'Application Support') : path.join(process.env.HOME || '', '.config'));
+        const isyLauncherFolder = path.join(appDataPath, 'IsyLauncher');
+        
+        if (!fs.existsSync(isyLauncherFolder)) {
+            fs.mkdirSync(isyLauncherFolder, { recursive: true });
+        }
+        
+        const filePath = path.join(isyLauncherFolder, `libraries.json`);
+        fs.writeFileSync(filePath, libraries);
+    });
+
+    ipcMain.on('getLibraries', () => {
+        const appDataPath = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME || '', 'Library', 'Application Support') : path.join(process.env.HOME || '', '.config'));
+        const isyLauncherFolder = path.join(appDataPath, 'IsyLauncher');
+        const filePath = path.join(isyLauncherFolder, `libraries.json`);
+    
+        if (fs.existsSync(filePath)) {
+            const data = fs.readFileSync(filePath, 'utf-8');
+            mainWindow?.webContents.send("getLibraries", JSON.parse(data));
+        } else {
+            mainWindow?.webContents.send("getLibraries", [{name: 'default', items: []}]);
+        }
+    });
+
+    ipcMain.on('updateCurrentLibrary', (_, currentLibrary) => {
+        const appDataPath = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME || '', 'Library', 'Application Support') : path.join(process.env.HOME || '', '.config'));
+        const isyLauncherFolder = path.join(appDataPath, 'IsyLauncher');
+        
+        if (!fs.existsSync(isyLauncherFolder)) {
+            fs.mkdirSync(isyLauncherFolder, { recursive: true });
+        }
+        
+        const filePath = path.join(isyLauncherFolder, `currentLibrary.json`);
+        fs.writeFileSync(filePath, JSON.stringify({currentLibrary}));
+    });
+
+    ipcMain.on('getCurrentLibrary', () => {
+        const appDataPath = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME || '', 'Library', 'Application Support') : path.join(process.env.HOME || '', '.config'));
+        const isyLauncherFolder = path.join(appDataPath, 'IsyLauncher');
+        const filePath = path.join(isyLauncherFolder, `currentLibrary.json`);
+    
+        if (fs.existsSync(filePath)) {
+            const data = fs.readFileSync(filePath, 'utf-8');
+            mainWindow?.webContents.send("getCurrentLibrary", JSON.parse(data).currentLibrary);
+        } else {
+            mainWindow?.webContents.send("getCurrentLibrary", 'default');
+        }
+    });
+
+    ipcMain.handle('openFileDialog', async () => {
         const result = await dialog.showOpenDialog({
             properties: ['openFile'],
             filters: [
