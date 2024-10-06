@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, Tray, Menu } from 'electron'
 import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -6,11 +6,12 @@ import getFileIcon from 'extract-file-icon';
 import fs from 'fs';
 import { exec } from 'child_process';
 
-let mainWindow : BrowserWindow | null = null;
+let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
 
-// TODO: hide window in the windows bottom nav bar
 function createWindow(): void {
     mainWindow = new BrowserWindow({
+        skipTaskbar: true,
         width: 600,
         height: 300,
         minHeight: 200,
@@ -46,16 +47,26 @@ function createWindow(): void {
     }
 }
 
-// TODO: implement tray
 app.whenReady().then(() => {
     // Set app user model id for windows
-    electronApp.setAppUserModelId('com.electron')
+    electronApp.setAppUserModelId('it.kiocode.isylaunch')
 
     app.on('browser-window-created', (_, window) => {
         optimizer.watchWindowShortcuts(window)
     })
 
     createWindow()
+
+    tray = new Tray(icon);
+    const contextMenu = Menu.buildFromTemplate([
+        { label: 'Show', click: () => mainWindow?.show() },
+        { label: 'Close', click: () => {
+            app.quit();
+        }}
+    ]);
+
+    tray.setToolTip('App Tray');
+    tray.setContextMenu(contextMenu);
 
     const saveIconToFile = (iconBuffer: Buffer, exePath: string): string => {
         if (!iconBuffer || !iconBuffer.length) {
@@ -83,9 +94,8 @@ app.whenReady().then(() => {
     };
     
 
-    // TODO: put it in another file
     // IPC
-    ipcMain.on('close', () => mainWindow?.close()); // TODO: close will minimize
+    ipcMain.on('close', () => mainWindow?.hide());
 
     ipcMain.handle('getIcon', async (_, exePath) => {
         try {
